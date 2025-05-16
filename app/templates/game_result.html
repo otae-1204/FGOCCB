@@ -1,0 +1,194 @@
+{% extends 'base.html' %}
+
+{% block title %}游戏结果{% endblock %}
+
+{% block content %}
+<div class="result-container">
+    <div class="result-header {% if win %}result-win{% elif surrendered %}result-surrender{% else %}result-lose{% endif %}">
+        {% if win %}
+        <h1><i class="fas fa-trophy"></i> 恭喜你猜对了！</h1>
+        {% elif surrendered %}
+        <h1><i class="fas fa-flag"></i> 你已投降</h1>
+        {% else %}
+        <h1><i class="fas fa-times-circle"></i> 游戏结束</h1>
+        {% endif %}
+    </div>
+    
+    <div class="answer-reveal">
+        <h2>正确答案是:</h2>
+        <div class="servant-card">
+            <div class="servant-name">{{ target_servant.name }}</div>
+            <div class="servant-class">{{ target_servant.class_name }}</div>
+            <div class="servant-details">
+                <div class="detail-row">
+                    <span class="detail-label">稀有度:</span>
+                    <span class="detail-value">{% for i in range(target_servant.rarity) %}★{% endfor %}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">性别:</span>
+                    <span class="detail-value">{{ target_servant.gender }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">阵营:</span>
+                    <span class="detail-value">{{ target_servant.alignment }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">属性:</span>
+                    <span class="detail-value">{{ target_servant.attribute }}</span>
+                </div>
+            </div>
+            
+            {% if target_servant.traits %}
+            <div class="servant-traits">
+                <span class="trait-label">特性:</span>
+                {% for trait in target_servant.traits %}
+                <span class="trait-tag">{{ trait }}</span>
+                {% endfor %}
+            </div>
+            {% endif %}
+            
+            <!-- 在从者信息卡中添加ATK和HP显示 -->
+            <div class="servant-stats">
+                {% if 'atk_90' in session.compare_options %}
+                <div class="stat-item">
+                    <div class="stat-label">满级ATK</div>
+                    <div class="stat-value">{{ target_servant.atk_90 }}</div>
+                </div>
+                {% endif %}
+                
+                {% if 'hp_90' in session.compare_options %}
+                <div class="stat-item">
+                    <div class="stat-label">满级HP</div>
+                    <div class="stat-value">{{ target_servant.hp_90 }}</div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="game-stats">
+        <div class="stat-item">
+            <div class="stat-value">{{ attempts }}/{{ max_attempts }}</div>
+            <div class="stat-label">猜测次数</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value">{{ game_time }}</div>
+            <div class="stat-label">用时</div>
+        </div>
+    </div>
+    
+    {% if guesses %}
+    <div class="guess-history">
+        <h3>猜测历史</h3>
+        <div class="history-container">
+            {% for i in range(guesses|length) %}
+            <div class="history-item">
+                <div class="guess-number">{{ i+1 }}</div>
+                <div class="guess-name">{{ guesses[i].name }}</div>
+                <div class="guess-comparison">
+                    {% for attr, status in comparisons[i].items() %}
+                    <div class="attr-compare {{ status }}">
+                        <span class="attr-name">{{ attr }}</span>
+                        {% if status == 'match' %}
+                        <i class="fas fa-check"></i>
+                        {% elif status == 'higher' %}
+                        <i class="fas fa-arrow-up"></i>
+                        {% elif status == 'lower' %}
+                        <i class="fas fa-arrow-down"></i>
+                        {% else %}
+                        <i class="fas fa-times"></i>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                    
+                    <!-- 在猜测历史记录显示中同样添加ATK和HP比较 -->
+                    {% if 'atk_90' in session.compare_options and '满级ATK' in comparisons[i] %}
+                    <div class="attr-compare {{ comparisons[i]['满级ATK'] }}">
+                        <span class="attr-name">ATK</span>
+                        <span class="attr-value">{{ guesses[i].atk_90 }}</span>
+                        {% if comparisons[i]['满级ATK'] == 'match' %}
+                        <i class="fas fa-check"></i>
+                        {% elif comparisons[i]['满级ATK'] == 'higher' or comparisons[i]['满级ATK'] == 'close-higher' %}
+                        <i class="fas fa-arrow-down hint higher"></i>
+                        {% else %}
+                        <i class="fas fa-arrow-up hint lower"></i>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    
+                    {% if 'hp_90' in session.compare_options and '满级HP' in comparisons[i] %}
+                    <div class="attr-compare {{ comparisons[i]['满级HP'] }}">
+                        <span class="attr-name">HP</span>
+                        <span class="attr-value">{{ guesses[i].hp_90 }}</span>
+                        {% if comparisons[i]['满级HP'] == 'match' %}
+                        <i class="fas fa-check"></i>
+                        {% elif comparisons[i]['满级HP'] == 'higher' or comparisons[i]['满级HP'] == 'close-higher' %}
+                        <i class="fas fa-arrow-down hint higher"></i>
+                        {% else %}
+                        <i class="fas fa-arrow-up hint lower"></i>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    
+    <div class="action-buttons">
+        <a href="{{ url_for('main.start_game') }}" class="btn btn-primary">
+            <i class="fas fa-redo"></i> 再玩一次
+        </a>
+        <a href="{{ url_for('main.index') }}" class="btn btn-secondary">
+            <i class="fas fa-home"></i> 返回首页
+        </a>
+        
+        <!-- 添加分享结果按钮 -->
+        <button id="share-result" class="btn btn-success">
+            <i class="fas fa-share-alt"></i> 分享结果
+        </button>
+    </div>
+    
+    <!-- 添加统计展示 -->
+    <div class="player-stats">
+        <h3>你的游戏统计</h3>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number">{{ session.get('game_stats', {}).get('games', 0) }}</div>
+                <div class="stat-title">总游戏</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">{{ session.get('game_stats', {}).get('wins', 0) }}</div>
+                <div class="stat-title">获胜</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">{{ "%.1f"|format(session.get('game_stats', {}).get('avg_attempts', 0)) }}</div>
+                <div class="stat-title">平均猜测数</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('share-result').addEventListener('click', function() {
+    // 构建分享文本
+    let resultEmoji = "{{ win }}" === "True" ? "🏆" : ("{{ surrendered }}" === "True" ? "🏳️" : "❌");
+    let shareText = `FGO从者猜猜看 ${resultEmoji}\n`;
+    shareText += `目标从者: {{ target_servant.name }}\n`;
+    shareText += `用时: {{ game_time }}\n`;
+    shareText += `尝试: {{ attempts }}/{{ max_attempts }}\n`;
+    shareText += `#FGO从者猜猜看`;
+    
+    // 复制到剪贴板
+    navigator.clipboard.writeText(shareText).then(function() {
+        alert('结果已复制到剪贴板，可以分享给好友啦！');
+    }).catch(function(err) {
+        console.error('无法复制: ', err);
+        alert('复制失败，请手动复制分享');
+    });
+});
+</script>
+{% endblock %}

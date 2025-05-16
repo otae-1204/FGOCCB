@@ -1,0 +1,704 @@
+{% extends 'base.html' %}
+
+{% block title %}FGO从者猜猜看{% endblock %}
+
+{% block content %}
+<div class="game-container">
+    <div class="game-header">
+        <h1>FGO从者猜猜看</h1>
+        <div class="game-info">
+            <span class="attempts">尝试次数: {{ session.attempts }}/{{ session.max_attempts }}</span>
+        </div>
+    </div>
+
+    <div class="guess-form-container">
+        <h2>输入从者名称进行猜测</h2>
+
+        <!-- 主猜测表单 -->
+        <form action="{{ url_for('main.guess') }}" method="post" class="guess-form" id="guess-form">
+            <div class="servant-search-container">
+                <input type="text" id="servant-search-input" class="servant-search-input" placeholder="输入从者名称或别名..."
+                    autocomplete="off">
+                <input type="hidden" id="selected-servant-id" name="servant_id" required>
+                <input type="hidden" id="selected-servant-name" name="servant_name">
+                <div id="search-results" class="search-results"></div>
+
+                <div class="search-help">
+                    <p>提示: 可以使用从者的名称或别名进行搜索</p>
+                    <p>例如: "阿尔托莉雅"、"呆毛王"、"蓝Saber" 都可以找到阿尔托莉雅·潘德拉贡</p>
+                </div>
+
+                <div class="servant-selection-info">
+                    <div id="selected-info">未选择从者</div>
+                    <button type="submit" id="submit-guess" class="btn btn-submit" disabled>提交猜测</button>
+                </div>
+            </div>
+        </form>
+        <!-- 创建投降和提示的div -->
+        <div class="hint-surrender-container">
+            <!-- 提示功能表单 - 从主表单中移出 -->
+            <div class="hint-container">
+                <form action="{{ url_for('main.get_hint') }}" method="post" class="hint-form">
+                    <button type="submit" class="btn btn-hint" {% if session.hint_used>= session.max_hints or not
+                        session.hint_enabled %}disabled{% endif %}>
+                        <i class="fas fa-lightbulb"></i> 获取提示
+                        <span class="hint-count">({{ session.hint_used|default(0) }}/{{ session.max_hints|default(3)
+                            }})</span>
+                    </button>
+                </form>
+
+                {% if session.current_hint %}
+                <div class="hint-message">
+                    <div class="hint-title">提示</div>
+                    <div class="hint-content">{{ session.current_hint|safe }}</div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- 添加投降按钮 -->
+            <div class="surrender-container">
+                <form action="{{ url_for('main.surrender_game') }}" method="post">
+                    <button type="submit" class="surrender-btn">
+                        <i class="fas fa-flag"></i> 投降
+                    </button>
+                </form>
+                <div class="surrender-hint">投降将揭晓答案并结束当前游戏</div>
+            </div>
+
+            
+        </div>
+    </div>
+
+    <!-- 添加调试信息，帮助开发期间定位问题
+    <div class="debug-info"
+        style="display: block; margin: 20px; padding: 15px; background: #f8f9fa; border: 1px solid #ddd; border-radius: 4px;">
+        <h4>调试信息</h4>
+        <p><b>比较选项:</b> {{ session.compare_options|tojson }}</p>
+        <p><b>比较结果:</b> {{ session.comparisons|tojson }}</p>
+    </div> -->
+
+    <!-- 修改历史表格部分，使用更简洁明确的条件判断 -->
+    <div class="guess-history">
+        {% if session.guesses %}
+        <h2>猜测历史 <span class="attempts-info">({{ session.attempts }}/{{ session.max_attempts }})</span></h2>
+        <div class="history-table-wrapper">
+            <table class="history-table">
+                <thead>
+                    <tr>
+                        <th>名称</th>
+                        <th>职阶</th>
+                        <th>星级</th>
+                        <th>性别</th>
+
+                        <!-- 其他比较项 -->
+                        {% if session.comparisons and '阵营' in session.comparisons[0] %}
+                        <th>阵营</th>
+                        {% endif %}
+
+                        {% if session.comparisons and '属性' in session.comparisons[0] %}
+                        <th>属性</th>
+                        {% endif %}
+
+                        {% if session.comparisons and '满级ATK' in session.comparisons[0] %}
+                        <th>满级ATK</th>
+                        {% endif %}
+
+                        {% if session.comparisons and '满级HP' in session.comparisons[0] %}
+                        <th>满级HP</th>
+                        {% endif %}
+
+                        {% if session.comparisons and '宝具类型' in session.comparisons[0] %}
+                        <th>宝具类型</th>
+                        {% endif %}
+
+                        {% if session.comparisons and '宝具色卡' in session.comparisons[0] %}
+                        <th>宝具色卡</th>
+                        {% endif %}
+
+                        {% if session.comparisons and '指令卡配置' in session.comparisons[0] %}
+                        <th>指令卡配置</th>
+                        {% endif %}
+
+                        {% if session.comparisons and '特性' in session.comparisons[0] %}
+                        <th>特性</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for i in range(session.guesses|length) %}
+                    <tr>
+                        <td class="servant-cell">
+                            <div class="servant-name">{{ session.guesses[i].name }}</div>
+                            <!-- <div class="servant-info">
+                                <span class="servant-class">{{ session.guesses[i].class_name }}</span>
+                                <span class="servant-rarity">
+                                    {% for j in range(session.guesses[i].rarity) %}★{% endfor %}
+                                </span>
+                            </div> -->
+                        </td>
+
+                        <!-- 职阶比较 -->
+                        <td class="{{ 'match' if session.comparisons[i].get('职阶') == 'match' else 'no-match' }}">
+                            {{ session.guesses[i].class_name }}
+                        </td>
+
+                        <!-- 星级比较 -->
+                        <td class="{{ session.comparisons[i].get('星级', '') }}">
+                            {% for j in range(session.guesses[i].rarity) %}★{% endfor %}
+                            {% if session.comparisons[i].get('星级') == 'higher' %}
+                            <span class="hint">↓</span>
+                            {% elif session.comparisons[i].get('星级') == 'lower' %}
+                            <span class="hint">↑</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- 性别比较 -->
+                        <td class="{{ 'match' if session.comparisons[i].get('性别') == 'match' else 'no-match' }}">
+                            {{ session.guesses[i].gender }}
+                        </td>
+
+                        <!-- 可选比较项 - 阵营 -->
+                        {% if session.comparisons and '阵营' in session.comparisons[0] %}
+                        <td class="{{ 'match' if session.comparisons[i].get('阵营') == 'match' else 'no-match' }}">
+                            <div class="alignment-container">
+                                {% set parts = session.guesses[i].alignment.split('·') %}
+                                {% for part in parts %}
+                                <span class="alignment-tag">{{ part }}</span>
+                                {% endfor %}
+                            </div>
+                        </td>
+                        {% endif %}
+
+                        <!-- 可选比较项 - 属性 -->
+                        {% if session.comparisons and '属性' in session.comparisons[0] %}
+                        <td class="{{ 'match' if session.comparisons[i].get('属性') == 'match' else 'no-match' }}">
+                            {{ session.guesses[i].attribute }}
+                        </td>
+                        {% endif %}
+
+                        <!-- 可选比较项 - 满级ATK -->
+                        {% if session.comparisons and '满级ATK' in session.comparisons[0] %}
+                        <td class="{{ session.comparisons[i].get('满级ATK', '') }}">
+                            {{ session.guesses[i].atk_90 }}
+                            {% if session.comparisons[i].get('满级ATK') == 'higher' %}
+                            <span class="hint">↓</span>
+                            {% elif session.comparisons[i].get('满级ATK') == 'lower' %}
+                            <span class="hint">↑</span>
+                            {% elif session.comparisons[i].get('满级ATK') == 'close' %}
+                            <span class="hint">↑</span>
+                            {% elif session.comparisons[i].get('满级ATK') == 'close-higher' %}
+                            <span class="hint">↓</span>
+                            {% endif %}
+                        </td>
+                        {% endif %}
+
+                        <!-- 可选比较项 - 满级HP -->
+                        {% if session.comparisons and '满级HP' in session.comparisons[0] %}
+                        <td class="{{ session.comparisons[i].get('满级HP', '') }}">
+                            {{ session.guesses[i].hp_90 }}
+                            {% if session.comparisons[i].get('满级HP') == 'higher' %}
+                            <span class="hint">↓</span>
+                            {% elif session.comparisons[i].get('满级HP') == 'lower' %}
+                            <span class="hint">↑</span>
+                            {% elif session.comparisons[i].get('满级HP') == 'close' %}
+                            <span class="hint">↑</span>
+                            {% elif session.comparisons[i].get('满级HP') == 'close-higher' %}
+                            <span class="hint">↓</span>
+                            {% endif %}
+                        </td>
+                        {% endif %}
+
+                        <!-- 可选比较项 - 宝具类型 -->
+                        {% if session.comparisons and '宝具类型' in session.comparisons[0] %}
+                        <td class="{{ 'match' if session.comparisons[i].get('宝具类型') == 'match' else 'no-match' }}">
+                            {{ session.guesses[i].noble_phantasm_type }}
+                        </td>
+                        {% endif %}
+
+                        <!-- 可选比较项 - 宝具色卡 -->
+                        {% if session.comparisons and '宝具色卡' in session.comparisons[0] %}
+                        <td class="{{ 'match' if session.comparisons[i].get('宝具色卡') == 'match' else 'no-match' }}">
+                            <span class="card {{ session.guesses[i].noble_phantasm_card }}">{{
+                                session.guesses[i].noble_phantasm_card }}</span>
+                        </td>
+                        {% endif %}
+
+                        <!-- 可选比较项 - 指令卡配置 -->
+                        {% if session.comparisons and '指令卡配置' in session.comparisons[0] %}
+                        <td class="{{ 'match' if session.comparisons[i].get('指令卡配置') == 'match' else 'no-match' }}">
+                            <div class="card-deck">
+                                {% for card in session.guesses[i].card_deck %}
+                                <span class="card {{ card }}">{{ card }}</span>
+                                {% endfor %}
+                            </div>
+                        </td>
+                        {% endif %}
+
+                        <!-- 可选比较项 - 特性 -->
+                        {% if session.comparisons and '特性' in session.comparisons[0] %}
+                        <td
+                            class="{{ 'match' if session.comparisons[i].get('特性') == 'match' else 'partial-match' if session.comparisons[i].get('特性') == 'partial' else 'no-match' }}">
+                            <div class="traits-container">
+                                {% for trait in session.guesses[i].traits %}
+                                <span
+                                    class="trait-tag {{ 'match' if trait in session.comparisons[i].get('匹配特性', []) else '' }}">{{
+                                    trait }}</span>
+                                {% endfor %}
+                            </div>
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="no-guesses">还没有猜测记录，开始你的第一次尝试吧！</p>
+        {% endif %}
+    </div>
+
+    <!-- 图例说明 -->
+    <div class="legend">
+        <h3>图例说明</h3>
+        <!-- 修改图例说明中的数值 -->
+        <div class="legend-items">
+            <div class="legend-item"><span class="legend-match"></span> - 属性完全匹配</div>
+            <div class="legend-item"><span class="legend-close"></span> - 数值接近（ATK，HP差距≤1000，星级差距≤1）</div>
+            <div class="legend-item"><span class="hint">↑</span> - 目标从者的数值更高</div>
+            <div class="legend-item"><span class="hint">↓</span> - 目标从者的数值更低</div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* 必要的CSS样式 */
+    .match {
+        background-color: #d4edda;
+        color: #155724;
+    }
+
+    .no-match {
+        /* 无底色 */
+    }
+
+    .close,
+    .close-higher {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+
+    .higher {
+        color: inherit;
+        /* 改为继承父元素颜色，而不是红色 */
+    }
+
+    .lower {
+        color: inherit;
+        /* 改为继承父元素颜色，而不是蓝色 */
+    }
+
+    .hint {
+        display: inline-block;
+        font-size: 1.2em;
+        line-height: 1;
+        font-weight: bold;
+    }
+
+    /* 历史表格样式 */
+    .history-table-wrapper {
+        overflow-x: auto;
+        margin: 20px 0;
+    }
+
+    .history-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .history-table th,
+    .history-table td {
+        padding: 8px 10px;
+        border: 1px solid #dee2e6;
+        text-align: center;
+    }
+
+    .history-table th {
+        background-color: #f8f9fa;
+        font-weight: bold;
+    }
+
+    /* 从者信息样式 */
+    .servant-cell {
+        text-align: left;
+    }
+
+    .servant-name {
+        font-weight: bold;
+    }
+
+    .servant-info {
+        display: flex;
+        gap: 10px;
+        font-size: 0.9em;
+        color: #6c757d;
+    }
+
+    /* 阵营和特性标签样式 */
+    .alignment-container,
+    .traits-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+
+    .alignment-tag,
+    .trait-tag {
+        display: inline-block;
+        padding: 2px 6px;
+        border-radius: 4px;
+        background-color: #f0f0f0;
+        font-size: 0.85em;
+        white-space: nowrap;
+    }
+
+    .alignment-tag.match,
+    .trait-tag.match {
+        background-color: #d4edda;
+        color: #155724;
+    }
+
+    /* 图例样式 */
+    .legend {
+        margin-top: 30px;
+        border-top: 1px solid #dee2e6;
+        padding-top: 15px;
+    }
+
+    .legend-items {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+
+    .legend-item {
+        display: flex;
+        align-items: center;
+        font-size: 0.9em;
+    }
+
+    .legend-match,
+    .legend-close {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border-radius: 4px;
+        margin-right: 5px;
+    }
+
+    .legend-match {
+        background-color: #d4edda;
+    }
+
+    .legend-close {
+        background-color: #fff3cd;
+    }
+
+    /* 投降按钮样式 */
+    .surrender-container {
+        margin-top: 20px;
+        text-align: center;
+    }
+
+    .surrender-btn {
+        font-size: 14px;
+        padding: 5px 15px;
+        border: 1px solid #dc3545;
+        color: #dc3545;
+        background: none;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+
+    .surrender-btn:hover {
+        background-color: #dc3545;
+        color: white;
+    }
+
+    .surrender-hint {
+        font-size: 12px;
+        color: #6c757d;
+        margin-top: 5px;
+    }
+
+    .card-deck {
+        display: flex;
+        gap: 2px;
+        justify-content: center;
+    }
+
+    .card {
+        width: 24px;
+        height: 24px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+        font-size: 0.75em;
+        font-weight: bold;
+    }
+
+    .card.Q {
+        background-color: #8bc34a;
+        /* 绿色 */
+        color: white;
+    }
+
+    .card.A {
+        background-color: #2196f3;
+        /* 蓝色 */
+        color: white;
+    }
+
+    .card.B {
+        background-color: #f44336;
+        /* 红色 */
+        color: white;
+    }
+
+    .partial-match {
+        background-color: #e7f5ff;
+        color: #0072bb;
+    }
+
+    .traits-container {
+        max-width: 150px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 3px;
+        justify-content: center;
+    }
+
+    .trait-tag {
+        font-size: 0.75em;
+        padding: 1px 4px;
+        border-radius: 3px;
+        background-color: #f0f0f0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
+    }
+
+    .trait-tag.match {
+        background-color: #d4edda;
+    }
+
+    /* 提示功能样式 */
+    .hint-container {
+        margin: 15px 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .btn-hint {
+        background-color: #17a2b8;
+        color: white;
+        border: none;
+        padding: 8px 15px;
+        border-radius: 4px;
+        font-size: 14px;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+
+    .btn-hint:hover:not([disabled]) {
+        background-color: #138496;
+    }
+
+    .btn-hint[disabled] {
+        background-color: #6c757d;
+        cursor: not-allowed;
+        opacity: 0.6;
+    }
+
+    .hint-count {
+        font-size: 0.8em;
+        opacity: 0.8;
+    }
+
+    .hint-message {
+        margin-top: 15px;
+        padding: 12px 15px;
+        background-color: #f8f9fa;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        width: 100%;
+        max-width: 500px;
+        text-align: center;
+    }
+
+    .hint-title {
+        font-weight: bold;
+        color: #17a2b8;
+        margin-bottom: 5px;
+    }
+
+    .hint-content {
+        color: #343a40;
+        line-height: 1.5;
+    }
+
+    /* 添加闪烁动画效果 */
+    @keyframes highlight {
+        0% {
+            background-color: #fff3cd;
+        }
+
+        50% {
+            background-color: #fff9e6;
+        }
+
+        100% {
+            background-color: #fff3cd;
+        }
+    }
+
+    .highlight-hint {
+        animation: highlight 2s ease-in-out;
+    }
+
+    /* 将猜测从者和投降位于一层 */
+    .servant-selection-info {
+        flex-direction: column;
+        display: inline-block;
+        gap: 10px;
+    }
+
+    .hint-surrender-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 20px;
+    }
+    /* 将提示和投降位于一层 */
+    .hint-container {
+        display: inline-block;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .surrender-container {
+        display: inline-block;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+    }
+</style>
+
+<script>
+    // 从者搜索脚本
+    document.addEventListener('DOMContentLoaded', function () {
+        const searchInput = document.getElementById('servant-search-input');
+        const searchResults = document.getElementById('search-results');
+        const selectedServantId = document.getElementById('selected-servant-id');
+        const selectedServantName = document.getElementById('selected-servant-name');
+        const selectedInfo = document.getElementById('selected-info');
+        const submitButton = document.getElementById('submit-guess');
+
+        let debounceTimer;
+
+        searchInput.addEventListener('input', function () {
+            clearTimeout(debounceTimer);
+            const query = this.value.trim();
+
+            if (query.length < 1) {
+                searchResults.innerHTML = '';
+                searchResults.style.display = 'none';
+                return;
+            }
+
+            debounceTimer = setTimeout(() => {
+                fetch(`{{ url_for('main.search_servants_api') }}?q=${encodeURIComponent(query)}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        searchResults.innerHTML = '';
+
+                        if (data.length === 0) {
+                            searchResults.innerHTML = '<div class="no-results">没有找到匹配的从者</div>';
+                            searchResults.style.display = 'block';
+                            return;
+                        }
+
+                        data.forEach(servant => {
+                            const resultItem = document.createElement('div');
+                            resultItem.className = 'search-result-item';
+                            resultItem.innerHTML = `
+                            <span class="result-rarity">${servant.rarity}★</span>
+                            <span class="result-class">${servant.class_name}</span>
+                            <span class="result-name">${servant.name}</span>
+                        `;
+
+                            resultItem.addEventListener('click', function () {
+                                selectedServantId.value = servant.id;
+                                selectedServantName.value = servant.name;
+                                selectedInfo.textContent = `已选择: ${servant.name} (${servant.rarity}★ ${servant.class_name})`;
+                                searchInput.value = servant.name;
+
+                                searchResults.innerHTML = '';
+                                searchResults.style.display = 'none';
+
+                                submitButton.disabled = false;
+                                searchInput.classList.add('selected');
+                            });
+
+                            searchResults.appendChild(resultItem);
+                        });
+
+                        searchResults.style.display = 'block';
+                    })
+                    .catch(error => {
+                        console.error('Error searching servants:', error);
+                        searchResults.innerHTML = '<div class="no-results">搜索出错，请重试</div>';
+                        searchResults.style.display = 'block';
+                    });
+            }, 300);
+        });
+
+        // 点击外部关闭搜索结果
+        document.addEventListener('click', function (event) {
+            if (!searchInput.contains(event.target) && !searchResults.contains(event.target)) {
+                searchResults.style.display = 'none';
+            }
+        });
+
+        // 重设搜索栏
+        searchInput.addEventListener('focus', function () {
+            if (searchInput.classList.contains('selected')) {
+                searchInput.value = '';
+                selectedServantId.value = '';
+                selectedServantName.value = '';
+                selectedInfo.textContent = '未选择从者';
+                submitButton.disabled = true;
+                searchInput.classList.remove('selected');
+            }
+        });
+    });
+
+    // 添加表单提交前验证
+    document.getElementById('guess-form').addEventListener('submit', function (event) {
+        const selectedServantId = document.getElementById('selected-servant-id').value;
+        if (!selectedServantId) {
+            event.preventDefault();
+            alert('请选择一个有效的从者');
+            return false;
+        }
+        return true;
+    });
+</script>
+{% endblock %}

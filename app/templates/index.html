@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+
+{% block title %}首页{% endblock %}
+
+{% block content %}
+<div class="welcome-section">
+    <h1>欢迎来到FGO从者猜猜看！</h1>
+    <p>测试你对Fate/Grand Order从者的了解程度！</p>
+    
+    <div class="game-rules">
+        <h2>游戏规则</h2>
+        <ul>
+            <li>系统会随机选择一名FGO从者</li>
+            <li>你需要猜出这名从者是谁</li>
+            <li>每次猜测后，系统会告诉你猜测的从者与目标从者的属性对比</li>
+            <li>根据对比结果调整你的下一次猜测</li>
+            <li>最多可以猜测10次，看看你能否找出谜底！</li>
+        </ul>
+    </div>
+    
+    <div class="attribute-explanation">
+        <h2>属性说明</h2>
+        <ul>
+            <li><strong>职阶</strong>：从者的职阶，如Saber、Archer等</li>
+            <li><strong>稀有度</strong>：从者的星级，1-5星</li>
+            <li><strong>性别</strong>：从者的性别</li>
+            <li><strong>阵营</strong>：从者的阵营，如"守序·善"、"混沌·恶"等</li>
+            <li><strong>属性</strong>：从者的属性，如天、地、人、星等</li>
+            <li><strong>宝具类型</strong>：从者宝具的类型，如对人、对军、对城等</li>
+        </ul>
+    </div>
+    
+    <div class="start-game">
+        <a href="{{ url_for('main.start_game') }}" class="btn btn-primary">开始游戏</a>
+    </div>
+</div>
+{% endblock %}

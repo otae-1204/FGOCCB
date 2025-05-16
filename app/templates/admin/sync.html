@@ -1,0 +1,163 @@
+{% extends 'base.html' %}
+
+{% block title %}从者数据同步{% endblock %}
+
+{% block content %}
+<div class="admin-container">
+    <h1>从者数据同步</h1>
+    
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    
+    <div class="stats-container">
+        <h3>数据库状态</h3>
+        <p>当前数据库中共有 <strong>{{ servant_count }}</strong> 个从者</p>
+        
+        {% if class_stats %}
+        <div class="class-stats">
+            <h4>按职阶统计：</h4>
+            <ul>
+                {% for class_name, count in class_stats.items() %}
+                <li>{{ class_name }}: {{ count }}个</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+    
+    <div class="sync-card">
+        <h3>更新所有从者数据</h3>
+        <p>点击下方按钮将从API同步所有从者数据</p>
+        
+        <form method="post">
+            <div class="form-check">
+                <input type="checkbox" id="force-update" name="force_update">
+                <label for="force-update">强制更新（覆盖现有数据）</label>
+            </div>
+            
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-sync"></i> 更新全部从者
+            </button>
+            
+            <div class="note">
+                <p>注意：更新所有从者数据可能需要较长时间，请耐心等待。</p>
+                <p>系统会自动处理API请求限制，避免被限流。</p>
+            </div>
+        </form>
+    </div>
+    
+    <div class="api-info">
+        <h3>API信息</h3>
+        <p>本功能使用FGO Wiki API获取从者数据。请合理使用，避免频繁请求。</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block styles %}
+{{ super() if super() }}
+<style>
+.admin-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.alert {
+    padding: 10px;
+    border-radius: 4px;
+    margin-bottom: 20px;
+}
+
+.alert-success {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.alert-warning {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+.alert-error {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+.alert-info {
+    background-color: #d1ecf1;
+    color: #0c5460;
+}
+
+.stats-container {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.class-stats ul {
+    columns: 3;
+    list-style: none;
+    padding-left: 0;
+}
+
+.sync-card {
+    background-color: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    margin-bottom: 20px;
+}
+
+.form-check {
+    margin-bottom: 15px;
+}
+
+.btn-primary {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+.btn-primary:hover {
+    background-color: #0069d9;
+}
+
+.note {
+    margin-top: 15px;
+    padding: 10px;
+    background-color: #fff3cd;
+    border-left: 4px solid #ffc107;
+    color: #856404;
+    font-size: 0.9em;
+}
+
+.api-info {
+    background-color: #e2f3fc;
+    padding: 15px;
+    border-radius: 8px;
+    margin-top: 20px;
+}
+
+@media (max-width: 768px) {
+    .class-stats ul {
+        columns: 2;
+    }
+}
+
+@media (max-width: 576px) {
+    .class-stats ul {
+        columns: 1;
+    }
+}
+</style>
+{% endblock %}
